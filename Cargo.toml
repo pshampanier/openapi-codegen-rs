@@ -1,0 +1,10 @@
+[package]
+name = "openapi-codegen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+yaml-rust = "0.4.5"
+minijinja = { version = "2.2", features = ["loader"] }
+serde = { version = "1.0", features = ["derive"] }
+rustfmt-wrapper = "0.2"

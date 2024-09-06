@@ -1,0 +1,51 @@
+{% macro rust_type(type, format, ref, minimum) %}
+  {%- if format == "uuid" -%}
+    uuid::Uuid
+  {%- elif format == "date-time" -%}
+    chrono::DateTime<chrono::Utc>
+  {%- elif format == "int64" and type == "number" and minimum == 0 -%}
+    u64
+  {%- elif format == "int64" and type == "number" -%}
+    i64
+  {%- elif format == "int32" and type == "number" and minimum == 0 -%}
+    u32
+  {%- elif format == "int32" and type == "number" -%}
+    i32
+  {%- elif format == "int16" and type == "number" and minimum == 0 -%}
+    u16
+  {%- elif format == "int16" and type == "number" -%}
+    i16
+  {%- elif format == "float" -%}
+    f32
+  {%- elif format == "double" -%}
+    f64
+  {%- elif ref -%}
+    {{ ref | replace('#/components/schemas/', '') }}
+  {%- elif format is not defined and type == "string" -%}
+    String
+  {%- elif type == "boolean" -%}
+    bool
+  {%- else -%}
+    __NOT_SUPPORTED__ (type: {{type}}, format: {{format}}, ref: {{ref}}, minimum: {{minimum}})
+  {%- endif -%}
+{% endmacro %}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct {{ name | pascal_case }} {
+  {% for key in properties %}
+  {%- set prop = properties[key] %}
+  {%- set prop_rust_type = rust_type(prop.type, prop.format, prop["$ref"], prop.minimum) %}
+  {% if prop.description %}
+  /// {{ prop.description | trim | replace('\n', '\n  /// ') }}
+  {%- endif %}
+  {%- if key in required %}
+  pub {{ key }}: {{ prop_rust_type }},
+  {% elif prop_rust_type == "String" %}
+  #[serde(default, skip_serializing_if = "String::is_empty")]
+  pub {{ key }}: {{ prop_rust_type }},
+  {% else %}
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub {{ key }}: Option<{{ prop_rust_type }}>,
+  {% endif %}
+  {%- endfor %}
+}
