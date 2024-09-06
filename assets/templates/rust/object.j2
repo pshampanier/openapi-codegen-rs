@@ -1,32 +1,32 @@
-{% macro rust_type(type, format, ref, minimum) %}
-  {%- if format == "uuid" -%}
+{% macro rust_type(prop) %}
+  {%- if prop.format == "uuid" -%}
     uuid::Uuid
-  {%- elif format == "date-time" -%}
+  {%- elif prop.format == "date-time" -%}
     chrono::DateTime<chrono::Utc>
-  {%- elif format == "int64" and type == "number" and minimum == 0 -%}
+  {%- elif prop.format == "int64" and prop.type == "number" and prop.minimum == 0 -%}
     u64
-  {%- elif format == "int64" and type == "number" -%}
+  {%- elif prop.format == "int64" and prop.type == "number" -%}
     i64
-  {%- elif format == "int32" and type == "number" and minimum == 0 -%}
+  {%- elif prop.format == "int32" and prop.type == "number" and prop.minimum == 0 -%}
     u32
-  {%- elif format == "int32" and type == "number" -%}
+  {%- elif prop.format == "int32" and prop.type == "number" -%}
     i32
-  {%- elif format == "int16" and type == "number" and minimum == 0 -%}
+  {%- elif prop.format == "int16" and prop.type == "number" and prop.minimum == 0 -%}
     u16
-  {%- elif format == "int16" and type == "number" -%}
+  {%- elif prop.format == "int16" and prop.type == "number" -%}
     i16
-  {%- elif format == "float" -%}
+  {%- elif prop.format == "float" -%}
     f32
-  {%- elif format == "double" -%}
+  {%- elif prop.format == "double" -%}
     f64
-  {%- elif ref -%}
-    {{ ref | replace('#/components/schemas/', '') }}
-  {%- elif format is not defined and type == "string" -%}
+  {%- elif prop["$ref"] -%}
+    {{ prop["$ref"] | replace('#/components/schemas/', '') }}
+  {%- elif prop.format is not defined and prop.type == "string" -%}
     String
-  {%- elif type == "boolean" -%}
+  {%- elif prop.type == "boolean" -%}
     bool
   {%- else -%}
-    __NOT_SUPPORTED__ (type: {{type}}, format: {{format}}, ref: {{ref}}, minimum: {{minimum}})
+    __NOT_SUPPORTED__ (properties: {{prop}})
   {%- endif -%}
 {% endmacro %}
 
@@ -34,7 +34,7 @@
 pub struct {{ name | pascal_case }} {
   {% for key in properties %}
   {%- set prop = properties[key] %}
-  {%- set prop_rust_type = rust_type(prop.type, prop.format, prop["$ref"], prop.minimum) %}
+  {%- set prop_rust_type = rust_type(prop) %}
   {% if prop.description %}
   /// {{ prop.description | trim | replace('\n', '\n  /// ') }}
   {%- endif %}
