@@ -1,7 +1,7 @@
 use crate::context::Context;
 use crate::generator::Generator;
 use crate::Result;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 
 pub struct OpenAPI {
     pub definition: Vec<Yaml>,
@@ -15,7 +15,7 @@ impl OpenAPI {
     }
 
     pub fn into_context(&self, path: &str) -> Result<Context> {
-        match self.find(path) {
+        match self.get(path) {
             Some(yaml) => Ok(Context::from(&yaml)),
             None => Err(format!("{path}: Path not found").into()),
         }
@@ -39,15 +39,14 @@ impl OpenAPI {
         Ok(result)
     }
 
-    pub fn find(&self, path: &str) -> Option<Yaml> {
+    /// Find a path in the OpenAPI definition.
+    fn find(&self, path: &str) -> Option<Yaml> {
         let mut path_iter = path.split('/');
         if path_iter.next() != Some("#") {
             None
         } else {
-            let mut name: Option<String> = None;
             let mut yaml = &self.definition[0];
             for key in path_iter {
-                name = Some(key.to_string());
                 yaml = match yaml
                     .as_hash()
                     .and_then(|h| h.get(&Yaml::String(key.to_string())))
@@ -56,14 +55,51 @@ impl OpenAPI {
                     None => return None,
                 };
             }
-            match name {
-                Some(name) => {
-                    let mut hash = yaml.as_hash().unwrap().clone();
-                    hash.insert(Yaml::String("name".to_string()), Yaml::String(name));
-                    Some(Yaml::Hash(hash))
+            Some(yaml.clone())
+        }
+    }
+
+    /// Get a path in the OpenAPI definition.
+    ///
+    /// The path should be in the format of `#/path/to/definition`.
+    /// The returned value is an altered version of the definition with:
+    /// - the `name` field set to the last part of the path (e.g. `name: definition` in the example above)
+    /// - a field `references` that contains all definitions used by returned definition.
+    fn get(&self, path: &str) -> Option<Yaml> {
+        let yaml = self.find(path)?;
+        let mut refs = Vec::<String>::new();
+        let mut hash = yaml.as_hash().unwrap().clone();
+        if let Some(v) = hash.get(&Yaml::String("properties".to_string())) {
+            if v.as_hash().is_some() {
+                for (_k, v) in v.as_hash().unwrap() {
+                    if let Some(v) = v
+                        .as_hash()
+                        .and_then(|h| h.get(&Yaml::String("$ref".to_string())))
+                    {
+                        refs.push(v.as_str().unwrap().to_string());
+                    }
                 }
-                None => None,
             }
         }
+
+        // adding the `name` field
+        let name = path.split('/').last().unwrap().to_string();
+        hash.insert(Yaml::String("name".to_string()), Yaml::String(name));
+
+        // adding the `$$refs` field
+        if !refs.is_empty() {
+            let mut refs_field = Hash::new();
+            for ref_name in refs.iter() {
+                if let Some(v) = self.find(ref_name) {
+                    refs_field.insert(Yaml::String(ref_name.to_string()), v);
+                }
+            }
+            hash.insert(
+                Yaml::String("references".to_string()),
+                Yaml::Hash(refs_field),
+            );
+        }
+
+        Some(Yaml::Hash(hash))
     }
 }
