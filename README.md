@@ -6,25 +6,25 @@ definition.
 ## Example
 
 ```rust
-use openapi_codegen::{rustfmt, OpenAPI, Generator};
+use openapi_codegen::{rustfmt, Context, Generator};
+use yaml_rust::YamlLoader;
 
-let generator = Generator::from_templates(vec![
-    ("enum", include_str!("../assets/templates/rust/enum.j2")),
-    ("object", include_str!("../assets/templates/rust/object.j2")),
-]).unwrap();
-let openapi = OpenAPI::from_yaml_str(include_str!("../assets/openapi.yaml")).unwrap();
-println!("{}", openapi
-    .apply_templates(
-        &generator,
-        &vec![
-            "#/components/schemas/QueryExecutionStatus",
-            "#/components/schemas/QueryExecutionError",
-        ],
+let openapi = YamlLoader::load_from_str(include_str!("../assets/openapi.yaml")).unwrap();
+let generator =
+    Generator::from_templates(vec![("macros", include_str!("../assets/macros.j2"))])
+        .unwrap();
+let context = Context::from(&openapi[0]);
+let result = generator
+    .render_string(r#"
+{% from "macros" import enum %}
+{{ enum("QueryExecutionStatus", components.schemas.QueryExecutionStatus) }}
+    "#,
+        &context,
     )
-    .and_then(rustfmt).unwrap());
+    .and_then(rustfmt);
 ```
 
-Should display:
+Should generate:
 
 ```rust,ignore
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -34,18 +34,6 @@ pub enum QueryExecutionStatus {
     Running,
     Completed,
     Failed,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct QueryExecutionError {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub column: Option<u32>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub line: Option<u32>,
-
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub message: String,
 }
 ```
 

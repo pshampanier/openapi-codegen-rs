@@ -38,6 +38,10 @@ impl<'a> Generator<'a> {
         Ok(template.render(context)?)
     }
 
+    pub fn render_string(&self, source: &str, context: &Context) -> Result<String> {
+        Ok(self.env.render_str(source, context)?)
+    }
+
     fn add_filters(env: &mut Environment<'_>) {
         env.add_filter("snake_case", |s: String| {
             let mut snake_case = String::new();

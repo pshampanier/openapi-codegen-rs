@@ -100,24 +100,3 @@ impl From<&Yaml> for Context {
         }
     }
 }
-
-impl From<Vec<Yaml>> for Context {
-    fn from(yaml: Vec<Yaml>) -> Self {
-        if yaml.len() != 1 {
-            panic!("Expected a single YAML document");
-        }
-        match &yaml[0] {
-            Yaml::Hash(map) => {
-                let name = map.front().unwrap().0.as_str().unwrap();
-                let values = map.front().unwrap().1.clone();
-                let mut context = HashMap::<String, Context>::new();
-                context.insert("name".into(), Context::String(name.into()));
-                for (key, value) in values.as_hash().unwrap() {
-                    context.insert(key.as_str().unwrap().to_string(), Context::from(value));
-                }
-                Context::Hash(context)
-            }
-            _ => panic!("Expected a map"),
-        }
-    }
-}
